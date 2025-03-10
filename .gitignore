@@ -1,0 +1,46 @@
+# IDE配置文件和目录
+.vscode/
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# 编译生成的文件和目录
+target/
+bin/
+out/
+build/
+*.class
+
+# 系统自动生成的文件
+.DS_Store
+Thumbs.db
+
+# 项目依赖文件
+node_modules/
+
+# 临时文件和日志
+*.log
+*.tmp
+temp/
+
+# 上传的文件目录
+uploaded-files/
+
+# Spring Boot特定文件
+.springBeans
+.spring-boot-devtools
+
+# Maven特定文件
+.mvn/
+mvnw
+mvnw.cmd
+
+# 包文件
+*.jar
+*.war
+*.nar
+*.ear
+*.zip
+*.tar.gz
+*.rar
