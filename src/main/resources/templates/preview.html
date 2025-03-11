@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>文件预览</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css">
+    <style>
+        .file-tree {
+            margin: 20px 0;
+        }
+        .file-tree ul {
+            list-style-type: none;
+            padding-left: 20px;
+        }
+        .file-tree li {
+            margin: 5px 0;
+        }
+        .file-icon {
+            margin-right: 5px;
+        }
+        .directory {
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .file {
+            cursor: pointer;
+        }
+        .preview-container {
+            margin-top: 20px;
+            border: 1px solid #ddd;
+            padding: 15px;
+            border-radius: 5px;
+            min-height: 300px;
+        }
+        .preview-image {
+            max-width: 100%;
+            max-height: 500px;
+        }
+        .preview-pdf {
+            width: 100%;
+            height: 500px;
+        }
+        .preview-text {
+            white-space: pre-wrap;
+            font-family: monospace;
+        }
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-4">
+        <h1 class="mb-4">文件预览系统</h1>
+        
+        <div class="row">
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h5>文件目录</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="file-tree" class="file-tree">
+                            <ul id="root-directory"></ul>
+                        </div>
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <a href="/login" class="btn btn-primary">登录上传文件</a>
+                </div>
+            </div>
+            
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-header">
+                        <h5>文件预览</h5>
+                        <span id="preview-filename"></span>
+                    </div>
+                    <div class="card-body">
+                        <div class="preview-container">
+                            <div id="preview-placeholder" class="text-center text-muted">
+                                <i class="fa fa-file fa-5x mb-3"></i>
+                                <p>选择一个文件进行预览</p>
+                            </div>
+                            <img id="preview-image" class="preview-image hidden" alt="预览图片">
+                            <iframe id="preview-pdf" class="preview-pdf hidden"></iframe>
+                            <pre id="preview-text" class="preview-text hidden"></pre>
+                            <div id="preview-other" class="text-center hidden">
+                                <i class="fa fa-file-o fa-5x mb-3"></i>
+                                <p>此文件类型不支持预览，请下载后查看</p>
+                                <a id="download-link" class="btn btn-primary" href="#" target="_blank">下载文件</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        $(document).ready(function() {
+            // 加载文件树
+            loadFileTree();
+            
+            // 文件点击事件委托
+            $(document).on('click', '.file', function() {
+                const filePath = $(this).data('path');
+                const fileType = $(this).data('type');
+                previewFile(filePath, fileType);
+            });
+            
+            // 目录点击事件委托
+            $(document).on('click', '.directory', function() {
+                $(this).parent().find('> ul').toggleClass('hidden');
+                $(this).find('.fa').toggleClass('fa-folder fa-folder-open');
+            });
+        });
+        
+        // 加载文件树
+        function loadFileTree() {
+            $.ajax({
+                url: '/files',
+                method: 'GET',
+                success: function(data) {
+                    const rootDirectory = $('#root-directory');
+                    rootDirectory.empty();
+                    
+                    if (data && data.length > 0) {
+                        renderFileTree(data, rootDirectory);
+                    } else {
+                        rootDirectory.html('<li class="text-muted">没有可用的文件</li>');
+                    }
+                },
+                error: function() {
+                    $('#root-directory').html('<li class="text-danger">加载文件列表失败</li>');
+                }
+            });
+        }
+        
+        // 渲染文件树
+        function renderFileTree(items, container) {
+            items.forEach(function(item) {
+                const li = $('<li></li>');
+                
+                if (item.isDirectory) {
+                    const directorySpan = $('<span class="directory"></span>');
+                    directorySpan.html('<i class="fa fa-folder file-icon"></i>' + item.name);
+                    li.append(directorySpan);
+                    
+                    const subContainer = $('<ul class="hidden"></ul>');
+                    if (item.children && item.children.length > 0) {
+                        renderFileTree(item.children, subContainer);
+                    } else {
+                        subContainer.html('<li class="text-muted">空目录</li>');
+                    }
+                    li.append(subContainer);
+                } else {
+                    let iconClass = 'fa-file-o';
+                    if (item.type === 'image') iconClass = 'fa-file-image-o';
+                    else if (item.type === 'pdf') iconClass = 'fa-file-pdf-o';
+                    else if (item.type === 'text') iconClass = 'fa-file-text-o';
+                    
+                    const fileSpan = $('<span class="file"></span>');
+                    fileSpan.html('<i class="fa ' + iconClass + ' file-icon"></i>' + item.name);
+                    fileSpan.data('path', item.path);
+                    fileSpan.data('type', item.type);
+                    li.append(fileSpan);
+                }
+                
+                container.append(li);
+            });
+        }
+        
+        // 预览文件
+        function previewFile(filePath, fileType) {
+            // 更新文件名显示
+            const fileName = filePath.split('/').pop();
+            $('#preview-filename').text(fileName);
+            
+            // 隐藏所有预览元素
+            $('#preview-placeholder').addClass('hidden');
+            $('#preview-image').addClass('hidden');
+            $('#preview-pdf').addClass('hidden');
+            $('#preview-text').addClass('hidden');
+            $('#preview-other').addClass('hidden');
+            
+            // 设置下载链接
+            const downloadUrl = '/preview/' + filePath;
+            $('#download-link').attr('href', downloadUrl);
+            
+            // 根据文件类型显示不同的预览
+            if (fileType === 'image') {
+                $('#preview-image').attr('src', downloadUrl).removeClass('hidden');
+            } else if (fileType === 'pdf') {
+                $('#preview-pdf').attr('src', downloadUrl).removeClass('hidden');
+            } else if (fileType === 'text') {
+                // 对于文本文件，获取内容并显示
+                $.ajax({
+                    url: downloadUrl,
+                    method: 'GET',
+                    success: function(data) {
+                        $('#preview-text').text(data).removeClass('hidden');
+                    },
+                    error: function() {
+                        $('#preview-text').text('无法加载文本内容').removeClass('hidden');
+                    }
+                });
+            } else {
+                // 其他类型文件，显示下载选项
+                $('#preview-other').removeClass('hidden');
+            }
+        }
+    </script>
+</body>
+</html>
